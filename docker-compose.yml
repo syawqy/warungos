@@ -1,0 +1,170 @@
+version: "3.9"
+
+services:
+  # ─── Infrastructure ───
+  postgres:
+    image: postgres:16-alpine
+    container_name: warungos-postgres
+    environment:
+      POSTGRES_USER: warungos
+      POSTGRES_PASSWORD: warungos
+      POSTGRES_DB: warungos
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations/postgres:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warungos"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    container_name: warungos-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+      - ./migrations/mongo:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: warungos-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── Services ───
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: warungos-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      POSTGRES_URL: "postgres://warungos:warungos@postgres:5432/warungos?sslmode=disable"
+      MONGO_URL: "mongodb://mongo:27017"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "change-me-in-production"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: warungos-auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: "8081"
+      POSTGRES_URL: "postgres://warungos:warungos@postgres:5432/warungos?sslmode=disable"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "change-me-in-production"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  menu-service:
+    build:
+      context: .
+      dockerfile: services/menu-service/Dockerfile
+    container_name: warungos-menu-service
+    ports:
+      - "8082:8082"
+    environment:
+      PORT: "8082"
+      MONGO_URL: "mongodb://mongo:27017"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "change-me-in-production"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  order-service:
+    build:
+      context: .
+      dockerfile: services/order-service/Dockerfile
+    container_name: warungos-order-service
+    ports:
+      - "8083:8083"
+    environment:
+      PORT: "8083"
+      POSTGRES_URL: "postgres://warungos:warungos@postgres:5432/warungos?sslmode=disable"
+      MONGO_URL: "mongodb://mongo:27017"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "change-me-in-production"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    container_name: warungos-payment-service
+    ports:
+      - "8084:8084"
+    environment:
+      PORT: "8084"
+      POSTGRES_URL: "postgres://warungos:warungos@postgres:5432/warungos?sslmode=disable"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "change-me-in-production"
+      MIDTRANS_SERVER_KEY: ""
+      MIDTRANS_URL: "https://api.sandbox.midtrans.com"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: services/inventory-service/Dockerfile
+    container_name: warungos-inventory-service
+    ports:
+      - "8085:8085"
+    environment:
+      PORT: "8085"
+      POSTGRES_URL: "postgres://warungos:warungos@postgres:5432/warungos?sslmode=disable"
+      REDIS_URL: "redis://redis:6379"
+      JWT_SECRET: "change-me-in-production"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  mongodata:
+  redisdata:
