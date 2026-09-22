@@ -44,6 +44,8 @@ type Order struct {
 	UserID       string      `json:"user_id"`
 	BranchID     string      `json:"branch_id"`
 	Status       OrderStatus `json:"status"`
+	OrderType    string      `json:"order_type"`
+	CustomerName string      `json:"customer_name"`
 	PaymentMethod string    `json:"payment_method,omitempty"`
 	PaymentStatus string    `json:"payment_status"`
 	Items        []OrderItem `json:"items"`

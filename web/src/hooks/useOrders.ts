@@ -8,7 +8,11 @@ export function useOrders(branchId?: string, status?: string) {
     queryKey: ['orders', branchId, status],
     queryFn: async () => {
       const res = await orderAPI.list({ branch_id: branchId, status, limit: 50 });
-      return res.data;
+      // API returns {orders: [...], pagination} or {success, data: [...]}
+      const body = res.data;
+      if (body.orders) return body.orders;
+      if (body.data) return Array.isArray(body.data) ? body.data : body.data.orders || [];
+      return [];
     },
   });
 }

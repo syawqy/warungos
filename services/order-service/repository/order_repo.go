@@ -40,10 +40,10 @@ func (r *OrderRepository) Create(ctx context.Context, order *model.Order) error 
 	order.PaymentStatus = "unpaid"
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO orders (id, order_number, user_id, branch_id, status, subtotal, tax_amount, total_price, notes, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		`INSERT INTO orders (id, order_number, user_id, branch_id, status, order_type, customer_name, subtotal, tax_amount, total_price, notes, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		order.ID, order.OrderNumber, order.UserID, order.BranchID, order.Status,
-		order.Subtotal, order.TaxAmount, order.TotalPrice, order.Notes,
+		order.OrderType, order.CustomerName, order.Subtotal, order.TaxAmount, order.TotalPrice, order.Notes,
 		order.CreatedAt, order.UpdatedAt,
 	)
 	if err != nil {
@@ -73,7 +73,7 @@ func (r *OrderRepository) Create(ctx context.Context, order *model.Order) error 
 func (r *OrderRepository) FindByID(ctx context.Context, id string) (*model.Order, error) {
 	var order model.Order
 	rows, err := r.pool.Query(ctx,
-		`SELECT o.id, o.order_number, o.user_id, o.branch_id, o.status, o.subtotal, o.tax_amount, o.total_price,
+		`SELECT o.id, o.order_number, o.user_id, o.branch_id, o.status, o.order_type, o.customer_name, o.subtotal, o.tax_amount, o.total_price,
 		        o.notes, o.created_at, o.updated_at,
 		        oi.id, oi.order_id, oi.menu_item_id, oi.menu_item_name, oi.quantity, oi.unit_price, oi.total_price
 		 FROM orders o
@@ -91,7 +91,7 @@ func (r *OrderRepository) FindByID(ctx context.Context, id string) (*model.Order
 		if first {
 			if err := rows.Scan(
 				&order.ID, &order.OrderNumber, &order.UserID, &order.BranchID, &order.Status,
-				&order.Subtotal, &order.TaxAmount, &order.TotalPrice,
+				&order.OrderType, &order.CustomerName, &order.Subtotal, &order.TaxAmount, &order.TotalPrice,
 				&order.Notes, &order.CreatedAt, &order.UpdatedAt,
 				&item.ID, &item.OrderID, &item.MenuItemID, &item.MenuItemName,
 				&item.Quantity, &item.UnitPrice, &item.TotalPrice,
@@ -102,7 +102,7 @@ func (r *OrderRepository) FindByID(ctx context.Context, id string) (*model.Order
 		} else {
 			if err := rows.Scan(
 				&order.ID, &order.OrderNumber, &order.UserID, &order.BranchID, &order.Status,
-				&order.Subtotal, &order.TaxAmount, &order.TotalPrice,
+				&order.OrderType, &order.CustomerName, &order.Subtotal, &order.TaxAmount, &order.TotalPrice,
 				&order.Notes, &order.CreatedAt, &order.UpdatedAt,
 				&item.ID, &item.OrderID, &item.MenuItemID, &item.MenuItemName,
 				&item.Quantity, &item.UnitPrice, &item.TotalPrice,
@@ -132,7 +132,7 @@ func (r *OrderRepository) List(ctx context.Context, branchID, status string, pag
 		return nil, 0, fmt.Errorf("count orders: %w", err)
 	}
 
-	q := `SELECT id, order_number, user_id, branch_id, status, subtotal, tax_amount, total_price, notes, created_at, updated_at
+	q := `SELECT id, order_number, user_id, branch_id, status, order_type, customer_name, subtotal, tax_amount, total_price, notes, created_at, updated_at
 	      FROM orders WHERE branch_id = $1`
 	listArgs := []interface{}{branchID}
 	argN := 2
@@ -154,7 +154,7 @@ func (r *OrderRepository) List(ctx context.Context, branchID, status string, pag
 	for rows.Next() {
 		var o model.Order
 		if err := rows.Scan(&o.ID, &o.OrderNumber, &o.UserID, &o.BranchID, &o.Status,
-			&o.Subtotal, &o.TaxAmount, &o.TotalPrice, &o.Notes, &o.CreatedAt, &o.UpdatedAt); err != nil {
+			&o.OrderType, &o.CustomerName, &o.Subtotal, &o.TaxAmount, &o.TotalPrice, &o.Notes, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan order: %w", err)
 		}
 		orders = append(orders, o)

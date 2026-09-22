@@ -21,10 +21,12 @@ func NewOrderService(repo *repository.OrderRepository, pubsub *sharedredis.PubSu
 
 func (s *OrderService) CreateOrder(ctx context.Context, userID string, req *model.CreateOrderRequest) (*model.Order, error) {
 	order := &model.Order{
-		ID:       generateUUID(),
-		UserID:   userID,
-		BranchID: req.BranchID,
-		Notes:    req.Notes,
+		ID:           generateUUID(),
+		UserID:       userID,
+		BranchID:     req.BranchID,
+		OrderType:    req.OrderType,
+		CustomerName: req.CustomerName,
+		Notes:        req.Notes,
 	}
 
 	for _, item := range req.Items {

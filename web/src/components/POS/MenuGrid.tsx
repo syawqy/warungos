@@ -10,9 +10,9 @@ interface MenuGridProps {
 
 const CATEGORIES = [
   { id: '', label: 'Semua' },
-  { id: 'mains', label: 'Makanan' },
-  { id: 'beverages', label: 'Minuman' },
-  { id: 'sides', label: 'Side Dish' },
+  { id: 'makanan', label: 'Makanan' },
+  { id: 'minuman', label: 'Minuman' },
+  { id: 'side_dish', label: 'Side Dish' },
   { id: 'desserts', label: 'Dessert' },
   { id: 'snacks', label: 'Cemilan' },
   { id: 'promo', label: 'Paket Promo' },

@@ -43,7 +43,7 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, order)
+	writeJSON(w, http.StatusCreated, map[string]interface{}{"success": true, "data": order})
 }
 
 func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +91,8 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"orders": orders,
+		"success": true,
+		"data": orders,
 		"pagination": map[string]interface{}{
 			"page":  page,
 			"limit": limit,

@@ -25,7 +25,7 @@ export default function OrdersPage() {
   const { data, isLoading, refetch } = useOrders(undefined, statusFilter);
   const updateStatus = useUpdateOrderStatus();
 
-  const orders = data?.data || [];
+  const orders = data || [];
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     try {
@@ -99,7 +99,7 @@ export default function OrdersPage() {
 
                 <div className="flex items-center gap-3">
                   <span className="text-lg font-bold text-warung-orange">
-                    {formatCurrency(order.total)}
+                    {formatCurrency(order.total_price)}
                   </span>
 
                   {NEXT_STATUS[order.status] && (
