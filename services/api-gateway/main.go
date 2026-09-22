@@ -132,6 +132,14 @@ func proxy(serviceURL string) http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Chi Route groups don't strip URL.Path; reverse proxy needs clean path
+		if len(r.URL.Path) > 7 && r.URL.Path[:7] == "/api/v1" {
+			r.URL.Path = r.URL.Path[7:]
+			if r.URL.Path == "" {
+				r.URL.Path = "/"
+			}
+		}
+		log.Printf("PROXY: %s %s -> %s", r.Method, r.URL.Path, serviceURL)
 		r.Header.Set("X-Forwarded-Host", r.Host)
 		p.ServeHTTP(w, r)
 	}

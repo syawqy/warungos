@@ -76,7 +76,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, tokens)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": tokens})
 }
 
 // Register creates a new user account.
@@ -192,7 +192,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, tokens)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": tokens})
 }
 
 // Me returns the current authenticated user's profile.
@@ -209,13 +209,13 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": map[string]string{
 		"id":        user.ID,
 		"email":     user.Email,
 		"name":      user.Name,
 		"role":      user.Role,
 		"branch_id": user.BranchID,
-	})
+	}})
 }
 
 // generateTokens creates an access token (15 min) and refresh token (7 days).

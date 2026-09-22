@@ -13,7 +13,7 @@ export default function POSPage() {
   const handlePay = async (method: string) => {
     try {
       await createOrder.mutateAsync({
-        branch_id: 'branch-central', // TODO: get from user context
+        branch_id: 'a0000000-0000-0000-0000-000000000001', // TODO: get from user context
         customer_name: cart.customerName,
         order_type: cart.orderType,
         items: cart.items.map(item => ({

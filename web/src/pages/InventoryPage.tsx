@@ -7,7 +7,7 @@ import type { InventoryItem } from '../types';
 
 export default function InventoryPage() {
   const queryClient = useQueryClient();
-  const [branchId] = useState('branch-central');
+  const [branchId] = useState('a0000000-0000-0000-0000-000000000001');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     item_name: '', quantity: 0, unit: 'kg', min_stock: 0, cost_per_unit: 0,

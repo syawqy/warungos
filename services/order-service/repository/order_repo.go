@@ -3,45 +3,47 @@ package repository
 import (
 	"context"
 	"fmt"
-	"strings"
+	"math/rand"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/warungos/order-service/model"
 )
 
-// OrderRepository handles order persistence.
 type OrderRepository struct {
 	pool *pgxpool.Pool
 }
 
-// NewOrderRepository creates a new OrderRepository.
 func NewOrderRepository(pool *pgxpool.Pool) *OrderRepository {
 	return &OrderRepository{pool: pool}
 }
 
-// Create inserts an order and its items in a single transaction.
+func generateOrderNumber() string {
+	return fmt.Sprintf("ORD-%d%04d", time.Now().Unix()%100000, rand.Intn(10000))
+}
+
 func (r *OrderRepository) Create(ctx context.Context, order *model.Order) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
+		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
 	now := time.Now()
 	order.CreatedAt = now
 	order.UpdatedAt = now
+	order.OrderNumber = generateOrderNumber()
 	if order.Status == "" {
 		order.Status = model.StatusPending
 	}
+	order.PaymentStatus = "unpaid"
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO orders (id, user_id, branch_id, status, subtotal, tax, total_price, notes, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		order.ID, order.UserID, order.BranchID, order.Status,
-		order.Subtotal, order.Tax, order.TotalPrice, order.Notes,
+		`INSERT INTO orders (id, order_number, user_id, branch_id, status, subtotal, tax_amount, total_price, notes, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		order.ID, order.OrderNumber, order.UserID, order.BranchID, order.Status,
+		order.Subtotal, order.TaxAmount, order.TotalPrice, order.Notes,
 		order.CreatedAt, order.UpdatedAt,
 	)
 	if err != nil {
@@ -50,12 +52,15 @@ func (r *OrderRepository) Create(ctx context.Context, order *model.Order) error 
 
 	for i := range order.Items {
 		order.Items[i].OrderID = order.ID
+		if order.Items[i].ID == "" {
+			order.Items[i].ID = fmt.Sprintf("oi-%s-%d", order.ID[:8], i)
+		}
 		_, err = tx.Exec(ctx,
-			`INSERT INTO order_items (id, order_id, menu_id, menu_name, quantity, unit_price, total_price)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-			order.Items[i].ID, order.Items[i].OrderID, order.Items[i].MenuID,
-			order.Items[i].MenuName, order.Items[i].Quantity,
-			order.Items[i].UnitPrice, order.Items[i].TotalPrice,
+			`INSERT INTO order_items (id, order_id, menu_item_id, menu_item_name, quantity, unit_price, total_price, special_instructions)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+			order.Items[i].ID, order.Items[i].OrderID, order.Items[i].MenuItemID,
+			order.Items[i].MenuItemName, order.Items[i].Quantity,
+			order.Items[i].UnitPrice, order.Items[i].TotalPrice, order.Items[i].Notes,
 		)
 		if err != nil {
 			return fmt.Errorf("insert order item: %w", err)
@@ -65,19 +70,15 @@ func (r *OrderRepository) Create(ctx context.Context, order *model.Order) error 
 	return tx.Commit(ctx)
 }
 
-// FindByID retrieves an order with its items using a JOIN (not N+1).
 func (r *OrderRepository) FindByID(ctx context.Context, id string) (*model.Order, error) {
 	var order model.Order
-
-	// Single query with JOIN to fetch order + items
 	rows, err := r.pool.Query(ctx,
-		`SELECT o.id, o.user_id, o.branch_id, o.status, o.subtotal, o.tax, o.total_price,
+		`SELECT o.id, o.order_number, o.user_id, o.branch_id, o.status, o.subtotal, o.tax_amount, o.total_price,
 		        o.notes, o.created_at, o.updated_at,
-		        oi.id, oi.order_id, oi.menu_id, oi.menu_name, oi.quantity, oi.unit_price, oi.total_price
+		        oi.id, oi.order_id, oi.menu_item_id, oi.menu_item_name, oi.quantity, oi.unit_price, oi.total_price
 		 FROM orders o
 		 LEFT JOIN order_items oi ON oi.order_id = o.id
-		 WHERE o.id = $1
-		 ORDER BY oi.id`, id,
+		 WHERE o.id = $1 ORDER BY oi.id`, id,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query order: %w", err)
@@ -87,87 +88,63 @@ func (r *OrderRepository) FindByID(ctx context.Context, id string) (*model.Order
 	first := true
 	for rows.Next() {
 		var item model.OrderItem
-		if err := rows.Scan(
-			&order.ID, &order.UserID, &order.BranchID, &order.Status,
-			&order.Subtotal, &order.Tax, &order.TotalPrice,
-			&order.Notes, &order.CreatedAt, &order.UpdatedAt,
-			&item.ID, &item.OrderID, &item.MenuID, &item.MenuName,
-			&item.Quantity, &item.UnitPrice, &item.TotalPrice,
-		); err != nil {
-			return nil, fmt.Errorf("scan order row: %w", err)
-		}
 		if first {
+			if err := rows.Scan(
+				&order.ID, &order.OrderNumber, &order.UserID, &order.BranchID, &order.Status,
+				&order.Subtotal, &order.TaxAmount, &order.TotalPrice,
+				&order.Notes, &order.CreatedAt, &order.UpdatedAt,
+				&item.ID, &item.OrderID, &item.MenuItemID, &item.MenuItemName,
+				&item.Quantity, &item.UnitPrice, &item.TotalPrice,
+			); err != nil {
+				return nil, fmt.Errorf("scan order: %w", err)
+			}
 			first = false
+		} else {
+			if err := rows.Scan(
+				&order.ID, &order.OrderNumber, &order.UserID, &order.BranchID, &order.Status,
+				&order.Subtotal, &order.TaxAmount, &order.TotalPrice,
+				&order.Notes, &order.CreatedAt, &order.UpdatedAt,
+				&item.ID, &item.OrderID, &item.MenuItemID, &item.MenuItemName,
+				&item.Quantity, &item.UnitPrice, &item.TotalPrice,
+			); err != nil {
+				return nil, fmt.Errorf("scan item: %w", err)
+			}
 		}
 		order.Items = append(order.Items, item)
 	}
-
 	if first {
-		return nil, fmt.Errorf("order not found: %s", id)
+		return nil, fmt.Errorf("order not found")
 	}
-
 	return &order, nil
 }
 
-// List retrieves orders with optional filtering and pagination.
-func (r *OrderRepository) List(ctx context.Context, q model.OrderListQuery) ([]model.Order, int, error) {
-	where := []string{}
-	args := []interface{}{}
-	argIdx := 1
+func (r *OrderRepository) List(ctx context.Context, branchID, status string, page, limit int) ([]model.Order, int64, error) {
+	offset := (page - 1) * limit
 
-	if q.BranchID != "" {
-		where = append(where, fmt.Sprintf("o.branch_id = $%d", argIdx))
-		args = append(args, q.BranchID)
-		argIdx++
+	countQ := `SELECT COUNT(*) FROM orders WHERE branch_id = $1`
+	args := []interface{}{branchID}
+	if status != "" {
+		countQ += ` AND status = $2`
+		args = append(args, status)
 	}
-	if q.UserID != "" {
-		where = append(where, fmt.Sprintf("o.user_id = $%d", argIdx))
-		args = append(args, q.UserID)
-		argIdx++
-	}
-	if q.Status != "" {
-		where = append(where, fmt.Sprintf("o.status = $%d", argIdx))
-		args = append(args, q.Status)
-		argIdx++
-	}
-
-	whereClause := ""
-	if len(where) > 0 {
-		whereClause = "WHERE " + strings.Join(where, " AND ")
-	}
-
-	// Count total
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM orders o %s", whereClause)
-	var total int
-	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+	var total int64
+	if err := r.pool.QueryRow(ctx, countQ, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count orders: %w", err)
 	}
 
-	// Fetch page
-	page := q.Page
-	if page < 1 {
-		page = 1
+	q := `SELECT id, order_number, user_id, branch_id, status, subtotal, tax_amount, total_price, notes, created_at, updated_at
+	      FROM orders WHERE branch_id = $1`
+	listArgs := []interface{}{branchID}
+	argN := 2
+	if status != "" {
+		q += fmt.Sprintf(` AND status = $%d`, argN)
+		listArgs = append(listArgs, status)
+		argN++
 	}
-	pageSize := q.PageSize
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
+	q += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argN, argN+1)
+	listArgs = append(listArgs, limit, offset)
 
-	dataArgs := make([]interface{}, len(args))
-	copy(dataArgs, args)
-	dataArgs = append(dataArgs, pageSize, offset)
-
-	dataQuery := fmt.Sprintf(
-		`SELECT o.id, o.user_id, o.branch_id, o.status, o.subtotal, o.tax, o.total_price,
-		        o.notes, o.created_at, o.updated_at
-		 FROM orders o %s
-		 ORDER BY o.created_at DESC
-		 LIMIT $%d OFFSET $%d`,
-		whereClause, argIdx, argIdx+1,
-	)
-
-	rows, err := r.pool.Query(ctx, dataQuery, dataArgs...)
+	rows, err := r.pool.Query(ctx, q, listArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list orders: %w", err)
 	}
@@ -176,92 +153,25 @@ func (r *OrderRepository) List(ctx context.Context, q model.OrderListQuery) ([]m
 	var orders []model.Order
 	for rows.Next() {
 		var o model.Order
-		if err := rows.Scan(
-			&o.ID, &o.UserID, &o.BranchID, &o.Status,
-			&o.Subtotal, &o.Tax, &o.TotalPrice,
-			&o.Notes, &o.CreatedAt, &o.UpdatedAt,
-		); err != nil {
+		if err := rows.Scan(&o.ID, &o.OrderNumber, &o.UserID, &o.BranchID, &o.Status,
+			&o.Subtotal, &o.TaxAmount, &o.TotalPrice, &o.Notes, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan order: %w", err)
 		}
 		orders = append(orders, o)
 	}
-
-	// For each order, fetch its items
-	for i := range orders {
-		itemRows, err := r.pool.Query(ctx,
-			`SELECT id, order_id, menu_id, menu_name, quantity, unit_price, total_price
-			 FROM order_items WHERE order_id = $1`, orders[i].ID,
-		)
-		if err != nil {
-			return nil, 0, fmt.Errorf("query order items: %w", err)
-		}
-		for itemRows.Next() {
-			var item model.OrderItem
-			if err := itemRows.Scan(
-				&item.ID, &item.OrderID, &item.MenuID, &item.MenuName,
-				&item.Quantity, &item.UnitPrice, &item.TotalPrice,
-			); err != nil {
-				itemRows.Close()
-				return nil, 0, fmt.Errorf("scan order item: %w", err)
-			}
-			orders[i].Items = append(orders[i].Items, item)
-		}
-		itemRows.Close()
-	}
-
 	return orders, total, nil
 }
 
-// UpdateStatus changes the status of an order.
 func (r *OrderRepository) UpdateStatus(ctx context.Context, id string, status model.OrderStatus) error {
-	now := time.Now()
-	tag, err := r.pool.Exec(ctx,
-		`UPDATE orders SET status = $1, updated_at = $2 WHERE id = $3`,
-		status, now, id,
-	)
+	tag, err := r.pool.Exec(ctx, `UPDATE orders SET status=$2, updated_at=NOW() WHERE id=$1`, id, status)
 	if err != nil {
-		return fmt.Errorf("update order status: %w", err)
+		return fmt.Errorf("update status: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("order not found: %s", id)
+		return fmt.Errorf("order not found")
 	}
 	return nil
 }
 
-// CountByBranchAndDate returns the number of orders for a branch on a specific date.
-func (r *OrderRepository) CountByBranchAndDate(ctx context.Context, branchID string, date time.Time) (int, error) {
-	start := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
-	end := start.AddDate(0, 0, 1)
-
-	var count int
-	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM orders WHERE branch_id = $1 AND created_at >= $2 AND created_at < $3`,
-		branchID, start, end,
-	).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("count orders by branch and date: %w", err)
-	}
-	return count, nil
-}
-
-// GetOrderByID is an alias for FindByID used by the service layer.
-func (r *OrderRepository) GetOrderByID(ctx context.Context, id string) (*model.Order, error) {
-	return r.FindByID(ctx, id)
-}
-
-// GetOrderByIDForUpdate retrieves an order for update within a transaction.
-func (r *OrderRepository) GetOrderByIDForUpdate(ctx context.Context, tx pgx.Tx, id string) (*model.Order, error) {
-	var order model.Order
-	err := tx.QueryRow(ctx,
-		`SELECT id, user_id, branch_id, status, subtotal, tax, total_price, notes, created_at, updated_at
-		 FROM orders WHERE id = $1 FOR UPDATE`, id,
-	).Scan(
-		&order.ID, &order.UserID, &order.BranchID, &order.Status,
-		&order.Subtotal, &order.Tax, &order.TotalPrice,
-		&order.Notes, &order.CreatedAt, &order.UpdatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("get order for update: %w", err)
-	}
-	return &order, nil
-}
+// Ensure pgx.Tx is used
+var _ = pgx.Tx(nil)

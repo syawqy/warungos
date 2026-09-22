@@ -120,7 +120,7 @@ func (h *MenuHandler) ListMenuItems(w http.ResponseWriter, r *http.Request) {
 		items = []model.MenuItem{}
 	}
 
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": items})
 }
 
 // GetMenuItem handles GET /menu/{id}
@@ -142,7 +142,7 @@ func (h *MenuHandler) GetMenuItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, item)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": item})
 }
 
 // UpdateMenuItem handles PUT /menu/{id}
@@ -206,7 +206,7 @@ func (h *MenuHandler) UpdateMenuItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, existing)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": existing})
 }
 
 // DeleteMenuItem handles DELETE /menu/{id}
@@ -244,5 +244,5 @@ func (h *MenuHandler) GetCategoryStats(w http.ResponseWriter, r *http.Request) {
 		stats = []model.CategoryStats{}
 	}
 
-	writeJSON(w, http.StatusOK, stats)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": stats})
 }

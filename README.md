@@ -1,55 +1,77 @@
 # WarungOS — Modern QSR POS Microservices Platform
 
-> Production-grade Point of Sale system for Quick Service Restaurants, built with Go microservices, React TypeScript, and multi-database architecture.
+> Production-grade Point of Sale system for Quick Service Restaurants (Warung), built with Go microservices, React TypeScript, and multi-database architecture.
+
+## Screenshots
+
+### Login Page
+![Login](screenshots/01-login.png)
+
+### POS Terminal — Menu Grid
+![POS Terminal](screenshots/02-pos-terminal.png)
+
+### POS Terminal — Order Cart
+![POS with Cart](screenshots/02b-pos-with-cart.png)
+
+### Orders Management
+![Orders](screenshots/03-orders.png)
+
+### Dashboard & Analytics
+![Dashboard](screenshots/04-dashboard.png)
+
+### Inventory Management
+![Inventory](screenshots/05-inventory.png)
+
+---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    React TypeScript POS Terminal                 │
-│         (Vite + TailwindCSS + React Query + Recharts)          │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │ HTTP/REST
-┌───────────────────────────▼─────────────────────────────────────┐
-│                     API Gateway (Go :8080)                       │
-│              Chi Router + JWT Auth + Rate Limiter                │
-│              Reverse Proxy + Circuit Breaker                     │
-└───┬──────────┬──────────┬──────────┬──────────┬─────────────────┘
-    │          │          │          │          │
-┌───▼──┐  ┌───▼──┐  ┌───▼──┐  ┌───▼──┐  ┌───▼──────┐
-│Auth  │  │Menu  │  │Order │  │Pay   │  │Inventory │
-│:8081 │  │:8082 │  │:8083 │  │:8084 │  │:8085     │
-│ JWT  │  │Mongo │  │PgSQL │  │PgSQL │  │PgSQL     │
-│bcrypt│  │Text  │  │TX    │  │Retry │  │Atomic    │
-│Redis │  │Search│  │PubSub│  │Idemp │  │Locking   │
-└──┬───┘  └──┬───┘  └──┬───┘  └──┬───┘  └──┬──────┘
-   │         │         │         │         │
-   ▼         ▼         ▼         ▼         ▼
-┌──────────────────────────────────────────────────────────────┐
-│          PostgreSQL 16        MongoDB 7         Redis 7      │
-│     (users, orders, inv.)   (menu catalog)  (cache, pubsub) │
-└──────────────────────────────────────────────────────────────┘
-                            ▲
-                    ┌───────┴────────┐
-                    │  AI Service     │
-                    │  Python FastAPI  │
-                    │  :8001           │
-                    │  Recommendations │
-                    │  Sales Forecast  │
-                    │  Smart Reorder   │
+┌───────────────────────────────────────────────────────────────┐
+│                  React TypeScript POS Terminal                │
+│          Vite + TailwindCSS + React Query + Recharts          │
+└─────────────────────────────┬─────────────────────────────────┘
+                              │ HTTP / REST
+┌─────────────────────────────▼─────────────────────────────────┐
+│                   API Gateway (Go :8080)                       │
+│            Chi Router + JWT Auth + Rate Limiter                │
+│            Reverse Proxy + CORS + Circuit Breaker              │
+└──────┬──────────┬──────────┬──────────┬──────────┬────────────┘
+       │          │          │          │          │
+┌──────▼───┐┌─────▼────┐┌───▼──────┐┌──▼───────┐┌▼──────────┐
+│  Auth    ││  Menu    ││  Order   ││ Payment  ││ Inventory │
+│  :9081   ││  :9082   ││  :9083   ││  :9084   ││  :9085    │
+│  JWT     ││ MongoDB  ││ PgSQL    ││ PgSQL    ││ PgSQL     │
+│  bcrypt  ││ Text     ││ TX ACID  ││ Retry    ││ Atomic    │
+│  Redis   ││ Search   ││ PubSub   ││ Idempot  ││ Locking   │
+└────┬─────┘└────┬─────┘└────┬─────┘└────┬─────┘└────┬──────┘
+     │           │           │           │           │
+     ▼           ▼           ▼           ▼           ▼
+┌─────────────────────────────────────────────────────────────┐
+│        PostgreSQL 16     MongoDB 7        Redis 7           │
+│   (users, orders, inv.) (menu catalog) (cache, pubsub)     │
+└─────────────────────────────────────────────────────────────┘
+                              ▲
+                    ┌─────────┴────────┐
+                    │   AI Service     │
+                    │ Python FastAPI   │
+                    │ :8001            │
+                    │ Recommendations  │
+                    │ Sales Forecast   │
+                    │ Smart Reorder    │
                     └──────────────────┘
 ```
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| **Backend** | Go 1.22 (chi router, pgx, go-redis, mongo-driver) |
-| **Frontend** | React 19 + TypeScript 5 + Vite + TailwindCSS |
-| **Databases** | PostgreSQL 16 (transactions), MongoDB 7 (catalog), Redis 7 (cache/pubsub) |
-| **AI** | Python 3.12 + FastAPI (recommendations, forecasting) |
-| **Infra** | Docker Compose, multi-stage builds, nginx |
-| **Integration** | Midtrans payment (idempotent, retry, webhook) |
+| Layer              | Technology                                                |
+|--------------------|-----------------------------------------------------------|
+| **Backend**        | Go 1.22 (chi router, pgx, go-redis, mongo-driver)        |
+| **Frontend**       | React 19 + TypeScript 5 + Vite + TailwindCSS             |
+| **Databases**      | PostgreSQL 16 + MongoDB 7 + Redis 7                       |
+| **AI**             | Python 3.12 + FastAPI (recommendations, forecasting)     |
+| **Infra**          | Docker Compose, multi-stage builds, nginx                 |
+| **Payment**        | Midtrans integration (idempotent, retry, webhook)        |
 
 ## Quick Start
 
@@ -58,56 +80,67 @@
 git clone https://github.com/syawqy/warungos.git
 cd warungos
 
-# Start everything
+# Start infrastructure
+docker compose up -d postgres mongo redis
+
+# Apply migrations
+docker exec -i warungos-postgres psql -U warungos -d warungos < migrations/postgres/001_init.up.sql
+mongo < migrations/mongo/seed.js
+
+# Build and run
 make up
 
 # Access
 # POS Terminal:  http://localhost:3000
-# API Gateway:   http://localhost:8080
-# AI Service:    http://localhost:8001
-# Health:        http://localhost:8080/health
+# API Gateway:   http://localhost:9080
+# Health:        http://localhost:9080/health
+
+# Demo login: admin@warungos.id / admin123
 ```
 
 ## Key Features
 
-### 🖥️ POS Terminal (React TypeScript)
-- Touch-friendly menu grid with categories
-- Real-time cart management
-- Multiple payment methods (Cash, QRIS, Card, E-Wallet)
-- Order type selection (Dine In, Take Away, Delivery)
-- Receipt generation
+### POS Terminal (React TypeScript)
+- Touch-friendly menu grid with category filters (Makanan, Minuman, Side Dish, Dessert, Cemilan, Paket Promo)
+- Real-time cart management with subtotal, PPN (10% VAT), discount calculation
+- Order types: Dine In, Take Away, Delivery
+- Full Indonesian UI localization
 
-### 📊 Dashboard & Analytics
-- Daily/weekly sales charts (Recharts)
-- Category distribution pie chart
-- Low stock alerts
-- Order status overview
+### Dashboard & Analytics
+- 7-day revenue bar chart (Recharts)
+- Category distribution breakdown
+- Today's revenue, orders, completed, low stock summary cards
+- Low stock alerts from inventory system
 
-### 🔧 Go Microservices
-- **Auth Service**: JWT access + refresh tokens, bcrypt, RBAC (owner/manager/cashier), Redis rate limiting
-- **Menu Service**: MongoDB CRUD, text search, aggregation pipeline, Redis cache-aside
-- **Order Service**: PostgreSQL ACID transactions, status machine, Redis PubSub for real-time updates
-- **Payment Service**: Midtrans integration with retry + exponential backoff, idempotent webhooks, polling pattern
-- **Inventory Service**: Atomic stock reservation (optimistic locking), low stock alerts
+### Go Microservices (5 services)
+- **Auth Service** (Go :9081): JWT access + refresh tokens, bcrypt, RBAC (admin/staff/cashier), Redis rate limiting
+- **Menu Service** (Go :9082): MongoDB CRUD, text search, aggregation pipeline, Redis cache-aside
+- **Order Service** (Go :9083): PostgreSQL ACID transactions, status machine, Redis PubSub for real-time updates
+- **Payment Service** (Go :9084): Midtrans integration with retry + exponential backoff, idempotent webhooks
+- **Inventory Service** (Go :9085): Atomic stock reservation (optimistic locking), low stock alerts
 
-### 🤖 AI Features
+### AI Features (Python FastAPI)
 - **Menu Recommendations**: Time-of-day based suggestions with popularity scoring
 - **Sales Forecasting**: Moving average + seasonal adjustment with confidence intervals
 - **Smart Reorder**: Consumption rate analysis with reorder suggestions
 
 ## Database Design
 
-### PostgreSQL (Transactional Data)
-- **users**: id, email, password_hash, name, role (owner/manager/cashier), branch_id
-- **branches**: id, name, address, phone, is_active
-- **orders**: id, branch_id, cashier_id, status (pending→confirmed→preparing→ready→completed), total, payment_status
-- **order_items**: id, order_id (FK CASCADE), menu_item_id, quantity, unit_price, total_price
-- **inventory**: id, branch_id, item_name, quantity, min_stock, cost_per_unit
+### PostgreSQL (Transactional)
+| Table | Key Columns |
+|-------|-------------|
+| `users` | id (UUID), email, full_name, password_hash, role, branch_id |
+| `branches` | id (UUID), name, address, phone, is_active |
+| `orders` | id (UUID), order_number, user_id, branch_id, status, subtotal, tax_amount, total_price |
+| `order_items` | id (UUID), order_id (FK CASCADE), menu_item_id, quantity, unit_price, total_price |
+| `inventory` | id (UUID), branch_id, item_name, item_code, category, quantity, min_quantity, unit_cost |
 
 ### MongoDB (Flexible Catalog)
-- **menu_items**: name, category, price, variants[], modifiers[], tags[], branch_ids[]
-- **order_analytics**: timeseries collection for reporting
-- **ai_insights**: ML model outputs and recommendations
+| Collection | Schema |
+|------------|--------|
+| `menu_items` | name, category, price, variants[], modifiers[], tags[], branch_ids[] |
+| `order_analytics` | Timeseries collection for reporting |
+| `ai_insights` | ML model outputs and recommendations |
 
 ## Key Patterns Demonstrated
 
@@ -119,39 +152,16 @@ make up
 
 ### PostgreSQL Optimization
 - **Composite Indexes**: `(branch_id, status)` for filtered queries
-- **Explain Plan**: Demonstrate before/after index optimization
 - **ACID Transactions**: Order creation with atomic stock reservation
 - **Optimistic Locking**: `UPDATE ... WHERE quantity >= $1` prevents overselling
 
 ### MongoDB Optimization
 - **Text Index**: Full-text search on menu name + description
 - **Aggregation Pipeline**: Category statistics with $group + $avg
-- **JSON Schema Validation**: Enforce document structure at DB level
-- **Timeseries Collection**: Efficient analytics storage
 
-### Async Patterns (Payment Integration)
-- **Retry with Exponential Backoff**: 1s → 2s → 4s for Midtrans API calls
+### Async Patterns (Payment)
+- **Retry with Exponential Backoff**: 1s -> 2s -> 4s for Midtrans API calls
 - **Idempotent Webhooks**: Redis dedup prevents double-processing
-- **Polling Pattern**: Background worker checks pending payment statuses
-
-## Development
-
-```bash
-# Build all Go services
-make build-all
-
-# Run tests
-make test
-
-# Build frontend
-make build-web
-
-# Lint
-make lint
-
-# Seed database
-make seed
-```
 
 ## Project Structure
 
@@ -171,20 +181,35 @@ warungos/
 │       ├── model/          # Common types
 │       └── redis/          # Cache + PubSub + RateLimit
 ├── web/                    # React TypeScript POS frontend
-│   ├── src/
-│   │   ├── api/            # Typed API client
-│   │   ├── components/     # POS, Layout, Auth components
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── pages/          # POS, Orders, Dashboard, Inventory
-│   │   ├── types/          # TypeScript interfaces
-│   │   └── lib/            # Utility functions
+│   └── src/
+│       ├── api/            # Typed API client (axios)
+│       ├── components/     # POS, Layout, Auth components
+│       ├── hooks/          # useAuth, useMenu, useOrders
+│       ├── pages/          # POS, Orders, Dashboard, Inventory
+│       └── types/          # TypeScript interfaces
 ├── ai-service/             # Python FastAPI AI sidecar
 ├── migrations/
 │   ├── postgres/           # SQL migrations
-│   └── mongo/              # MongoDB migrations + seed
+│   └── mongo/              # MongoDB seed data
 ├── docker-compose.yml      # Full stack orchestration
-└── Makefile                # Build automation
+├── Makefile                # Build automation
+└── screenshots/            # App screenshots
 ```
+
+## API Endpoints
+
+| Method | Endpoint | Service | Auth |
+|--------|----------|---------|------|
+| POST | `/api/v1/auth/register` | Auth | No |
+| POST | `/api/v1/auth/login` | Auth | No |
+| GET | `/api/v1/auth/me` | Auth | Yes |
+| GET | `/api/v1/menu` | Menu | Yes |
+| POST | `/api/v1/menu` | Menu | Yes |
+| GET | `/api/v1/orders` | Order | Yes |
+| POST | `/api/v1/orders` | Order | Yes |
+| PATCH | `/api/v1/orders/:id/status` | Order | Yes |
+| GET | `/api/v1/inventory` | Inventory | Yes |
+| POST | `/api/v1/inventory/reserve` | Inventory | Yes |
 
 ## License
 

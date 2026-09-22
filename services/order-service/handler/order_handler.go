@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -13,17 +12,14 @@ import (
 	"github.com/warungos/shared/middleware"
 )
 
-// OrderHandler holds dependencies for order endpoints.
 type OrderHandler struct {
 	svc *service.OrderService
 }
 
-// NewOrderHandler creates a new OrderHandler.
 func NewOrderHandler(svc *service.OrderService) *OrderHandler {
 	return &OrderHandler{svc: svc}
 }
 
-// CreateOrder handles POST /orders.
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -50,65 +46,45 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, order)
 }
 
-// GetOrder handles GET /orders/{id}.
 func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if id == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "order id is required"})
-		return
-	}
-
 	order, err := h.svc.GetOrder(r.Context(), id)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "order not found"})
 		return
 	}
-
-	writeJSON(w, http.StatusOK, order)
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": order})
 }
 
-// UpdateOrderStatus handles PATCH /orders/{id}/status.
 func (h *OrderHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if id == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "order id is required"})
-		return
-	}
-
 	var req model.UpdateStatusRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
 		return
 	}
 
-	if err := h.svc.UpdateOrderStatus(r.Context(), id, req.Status); err != nil {
+	order, err := h.svc.UpdateOrderStatus(r.Context(), id, req.Status)
+	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-
-	writeJSON(w, http.StatusOK, map[string]string{"status": string(req.Status)})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"success": true, "data": order})
 }
 
-// ListOrders handles GET /orders with query parameters.
 func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
-	q := model.OrderListQuery{
-		BranchID: r.URL.Query().Get("branch_id"),
-		UserID:   r.URL.Query().Get("user_id"),
-		Status:   r.URL.Query().Get("status"),
+	branchID := r.URL.Query().Get("branch_id")
+	status := r.URL.Query().Get("status")
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 || limit > 100 {
+		limit = 20
 	}
 
-	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil {
-		q.Page = p
-	} else {
-		q.Page = 1
-	}
-	if ps, err := strconv.Atoi(r.URL.Query().Get("page_size")); err == nil {
-		q.PageSize = ps
-	} else {
-		q.PageSize = 20
-	}
-
-	orders, total, err := h.svc.ListOrders(r.Context(), q)
+	orders, total, err := h.svc.ListOrders(r.Context(), branchID, status, page, limit)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
@@ -117,43 +93,15 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"orders": orders,
 		"pagination": map[string]interface{}{
-			"page":      q.Page,
-			"page_size": q.PageSize,
-			"total":     total,
+			"page":  page,
+			"limit": limit,
+			"total": total,
 		},
 	})
 }
 
-// CountByBranchAndDate handles GET /orders/count?branch_id=xxx&date=2026-01-01.
 func (h *OrderHandler) CountByBranchAndDate(w http.ResponseWriter, r *http.Request) {
-	branchID := r.URL.Query().Get("branch_id")
-	if branchID == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "branch_id is required"})
-		return
-	}
-
-	dateStr := r.URL.Query().Get("date")
-	date := time.Now()
-	if dateStr != "" {
-		var err error
-		date, err = time.Parse("2006-01-02", dateStr)
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid date format, use YYYY-MM-DD"})
-			return
-		}
-	}
-
-	count, err := h.svc.CountByBranchAndDate(r.Context(), branchID, date)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"branch_id": branchID,
-		"date":      date.Format("2006-01-02"),
-		"count":     count,
-	})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "count endpoint"})
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {

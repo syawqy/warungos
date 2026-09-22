@@ -24,9 +24,9 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	var u model.User
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, name, password_hash, role, branch_id, created_at, updated_at
+		`SELECT id, email, full_name, password_hash, role, created_at, updated_at
 		 FROM users WHERE email = $1`, email,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Role, &u.BranchID, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
@@ -37,9 +37,9 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.
 func (r *UserRepository) FindByID(ctx context.Context, id string) (*model.User, error) {
 	var u model.User
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, email, name, password_hash, role, branch_id, created_at, updated_at
+		`SELECT id, email, full_name, password_hash, role, created_at, updated_at
 		 FROM users WHERE id = $1`, id,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Role, &u.BranchID, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
@@ -52,9 +52,9 @@ func (r *UserRepository) Create(ctx context.Context, u *model.User) error {
 	u.CreatedAt = now
 	u.UpdatedAt = now
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO users (id, email, name, password_hash, role, branch_id, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		u.ID, u.Email, u.Name, u.PasswordHash, u.Role, u.BranchID, u.CreatedAt, u.UpdatedAt,
+		`INSERT INTO users (id, email, full_name, password_hash, role, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		u.ID, u.Email, u.Name, u.PasswordHash, u.Role, u.CreatedAt, u.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)

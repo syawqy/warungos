@@ -55,7 +55,7 @@ func main() {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 
-	r.Route("/api/menu", func(r chi.Router) {
+	r.Route("/menu", func(r chi.Router) {
 		r.Mount("/", menuHandler.Routes())
 	})
 

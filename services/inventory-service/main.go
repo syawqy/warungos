@@ -49,7 +49,7 @@ func main() {
 	})
 
 	// API routes
-	r.Route("/api/v1/inventory", func(r chi.Router) {
+	r.Route("/inventory", func(r chi.Router) {
 		r.Get("/", h.List)
 		r.Post("/", h.Create)
 		r.Get("/alerts", h.GetAlerts)
