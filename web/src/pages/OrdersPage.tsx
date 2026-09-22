@@ -21,8 +21,9 @@ const NEXT_STATUS: Record<string, string> = {
 };
 
 export default function OrdersPage() {
+  const BRANCH_ID = 'a0000000-0000-0000-0000-000000000001';
   const [statusFilter, setStatusFilter] = useState('');
-  const { data, isLoading, refetch } = useOrders(undefined, statusFilter);
+  const { data, isLoading, refetch } = useOrders(BRANCH_ID, statusFilter);
   const updateStatus = useUpdateOrderStatus();
 
   const orders = data || [];

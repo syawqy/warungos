@@ -11,7 +11,7 @@ export default function DashboardPage() {
   const { data: ordersData } = useQuery({
     queryKey: ['dashboard-orders'],
     queryFn: async () => {
-      const res = await orderAPI.list({ limit: 100 });
+      const res = await orderAPI.list({ branch_id: 'a0000000-0000-0000-0000-000000000001', limit: 100 });
       return res.data;
     },
   });
