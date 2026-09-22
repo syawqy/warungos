@@ -95,11 +95,15 @@ export interface Order {
 export interface InventoryItem {
   id: string;
   branch_id: string;
+  item_code: string;
   item_name: string;
+  category: string;
   quantity: number;
   unit: string;
-  min_stock: number;
-  cost_per_unit: number;
+  min_quantity: number;
+  max_quantity: number;
+  unit_cost: number;
+  is_active: boolean;
   updated_at: string;
 }
 

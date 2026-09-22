@@ -10,7 +10,7 @@ export default function InventoryPage() {
   const [branchId] = useState('a0000000-0000-0000-0000-000000000001');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
-    item_name: '', quantity: 0, unit: 'kg', min_stock: 0, cost_per_unit: 0,
+    item_name: '', quantity: 0, unit: 'kg', min_quantity: 0, unit_cost: 0,
   });
 
   // Fetch inventory
@@ -37,7 +37,7 @@ export default function InventoryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       setShowForm(false);
-      setFormData({ item_name: '', quantity: 0, unit: 'kg', min_stock: 0, cost_per_unit: 0 });
+      setFormData({ item_name: '', quantity: 0, unit: 'kg', min_quantity: 0, unit_cost: 0 });
     },
   });
 
@@ -114,9 +114,9 @@ export default function InventoryPage() {
             </select>
             <input
               type="number"
-              placeholder="Stok minimum"
-              value={formData.min_stock || ''}
-              onChange={e => setFormData({ ...formData, min_stock: Number(e.target.value) })}
+              placeholder="Min stok"
+              value={formData.min_quantity || ''}
+              onChange={e => setFormData({ ...formData, min_quantity: Number(e.target.value) })}
               className="input-field"
             />
             <button
@@ -156,7 +156,7 @@ export default function InventoryPage() {
             </thead>
             <tbody>
               {items.map((item: InventoryItem) => {
-                const isLow = item.quantity <= item.min_stock;
+                const isLow = item.quantity <= item.min_quantity;
                 return (
                   <tr key={item.id} className={`border-b hover:bg-gray-50 ${isLow ? 'bg-red-50' : ''}`}>
                     <td className="p-3">
@@ -164,8 +164,8 @@ export default function InventoryPage() {
                       <p className="text-xs text-gray-400">{item.unit}</p>
                     </td>
                     <td className="p-3 text-right font-medium">{item.quantity}</td>
-                    <td className="p-3 text-right text-gray-500">{item.min_stock}</td>
-                    <td className="p-3 text-right">{formatCurrency(item.cost_per_unit)}</td>
+                    <td className="p-3 text-right text-gray-500">{item.min_quantity}</td>
+                    <td className="p-3 text-right">{formatCurrency(item.unit_cost)}</td>
                     <td className="p-3 text-center">
                       <span className={`px-2 py-1 text-xs rounded-full font-medium ${
                         isLow ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
