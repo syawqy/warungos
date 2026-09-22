@@ -22,6 +22,12 @@
 ### Inventory Management
 ![Inventory](screenshots/05-inventory.png)
 
+## Demo Video
+
+Full transaction walkthrough: Login → POS Terminal → Category Filter → Add Items → Payment (Cash) → Success → Orders → Dashboard → Inventory
+
+▶️ [Watch Demo Video](screenshots/warungos-demo.mp4)
+
 ---
 
 ## Architecture
